@@ -5,6 +5,7 @@ Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 6
 
    graphenebase.account
    graphenebase.aes
@@ -28,6 +29,6 @@ Module contents
 ---------------
 
 .. automodule:: graphenebase
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
