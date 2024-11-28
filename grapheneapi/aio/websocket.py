@@ -18,32 +18,46 @@ class Websocket(Rpc):
         self._messages = {}
         self.notifications = asyncio.Queue(loop=self.loop)
         self._event = asyncio.Event(loop=self.loop)
+        self._parser_terminated = False
 
     async def connect(self):
         ssl = True if self.url[:3] == "wss" else None
         self.ws = await websockets.connect(self.url, ssl=ssl, loop=self.loop)
-        task = self.loop.create_task(self.parse_messages())
-        task.add_done_callback(self.handle_parse_stop)
+        self.loop.create_task(self._parsing_wrapper())
 
     async def disconnect(self):
         if self.ws:
             await self.ws.close()
 
-    def handle_parse_stop(self, task):
+    async def _parsing_wrapper(self):
+        """Wraps parse_messages() coroutine to retrieve and handle exceptions
+
+        When parse_messages() stopped for any reason, websocket transport should be
+        stopped, and get_response_by_id() should be notified about broken parser
+        """
         try:
-            task.result()
+            await self.parse_messages()
+        except asyncio.CancelledError:
+            log.debug("Parsing task cancelled")
         except Exception:
             log.exception("Task stopped with exception")
         else:
-            log.info("Task stopped with result: {}".format(task.result()))
+            log.info("Task stopped")
+        finally:
+            await self.disconnect()
+            # When parse_messages() terminated for any reason, some coroutines may still
+            # be in waiting state waiting for API response. Indicate that parser was
+            # terminated and set the event to let them proceed and shutdown
+            self._parser_terminated = True
+            self._event.set()
 
     async def parse_messages(self):
-        """ Listen websocket for incoming messages in infinity manner
+        """Listen websocket for incoming messages in infinity manner
 
-            Messages which are responses (has id) are stored in dict, while
-            messages which are notifies are stored in asyncio queue and are
-            supposed to be processed later by whom who sets the subscribtion
-            callback
+        Messages which are responses (has id) are stored in dict, while
+        messages which are notifies are stored in asyncio queue and are
+        supposed to be processed later by whom who sets the subscribtion
+        callback
         """
 
         async for message in self.ws:
@@ -83,25 +97,27 @@ class Websocket(Rpc):
                 await self.notifications.put(m)
 
     async def get_response_by_id(self, request_id):
-        """ Pop response from dict containing all query results
+        """Pop response from dict containing all query results
 
-            :param int request_id: request id to get response to
+        :param int request_id: request id to get response to
         """
         response = None
         while not response:
+            if self._parser_terminated:
+                break
             # Reset event state
             self._event.clear()
-            # Lock until response will be available
+            # Lock until response ready
             await self._event.wait()
             log.debug("looking for response id {}".format(request_id))
             response = self._messages.pop(request_id, None)
         return response
 
     async def rpcexec(self, payload):
-        """ Execute a RPC call
+        """Execute a RPC call
 
-            :param dict payload: json-rpc request in format:
-                {"jsonrpc": "2.0", "method": "call", "params": "[x, y, z]", "id": 1}
+        :param dict payload: json-rpc request in format:
+            {"jsonrpc": "2.0", "method": "call", "params": "[x, y, z]", "id": 1}
         """
         if not self.ws:
             await self.connect()

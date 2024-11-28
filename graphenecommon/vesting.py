@@ -5,10 +5,10 @@ from .instance import AbstractBlockchainInstanceProvider
 
 
 class Vesting(BlockchainObject, AbstractBlockchainInstanceProvider):
-    """ Read data about a Vesting Balance in the chain
+    """Read data about a Vesting Balance in the chain
 
-        :param str id: Id of the vesting balance
-        :param instance blockchain_instance: instance to use when accesing a RPC
+    :param str id: Id of the vesting balance
+    :param instance blockchain_instance: instance to use when accesing a RPC
 
     """
 
@@ -51,7 +51,7 @@ class Vesting(BlockchainObject, AbstractBlockchainInstanceProvider):
                 self["balance"], blockchain_instance=self.blockchain
             )
         else:
-            raise NotImplementedError("This policy isn't implemented yet")
+            return self.amount_class(self["balance"])
 
     def claim(self, amount=None):
         assert callable(self.blockchain.vesting_balance_withdraw)
