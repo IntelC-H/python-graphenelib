@@ -35,6 +35,7 @@ class ProposalBuilder(SyncProposalBuilder):
     async def broadcast(self):
         assert self.parent, "No parent transaction provided!"
         self.parent._set_require_reconstruction()
+        await self.parent.sign()
         return await self.parent.broadcast()
 
     async def json(self):
@@ -307,17 +308,12 @@ class TransactionBuilder(SyncTransactionBuilder):
         elif "blockchain" in self:
             self.operations.default_prefix = self["blockchain"]["prefix"]
 
-        try:
-            signedtx = self.signed_transaction_class(**await self.json())
-        except Exception:
-            raise ValueError("Invalid TransactionBuilder Format")
-
         if not any(self.wifs):
             raise MissingKeyError
 
-        signedtx.sign(self.wifs, chain=self.blockchain.rpc.chain_params)
-        self["signatures"].extend(signedtx.json().get("signatures"))
-        return signedtx
+        self.tx.sign(self.wifs, chain=self.blockchain.rpc.chain_params)
+        self["signatures"].extend(self.tx.json().get("signatures"))
+        return self.tx
 
     async def verify_authority(self):
         """ Verify the authority of the signed transaction
@@ -339,7 +335,7 @@ class TransactionBuilder(SyncTransactionBuilder):
 
         # Cannot broadcast an empty transaction
         if "operations" not in self or not self["operations"]:
-            log.warning("No operations in transaction! Returning")
+            log.debug("No operations in transaction! Returning")
             return
 
         # Obtain JS

@@ -39,15 +39,19 @@ class Api:
         # Let's also be able to deal with infinite connection
         self.urls = cycle(urls)
         self._cnt_retries = 0
+        self._network = None
 
         # Connect!
         if connect:
             self.connect()
+            self._network = self.get_network()
 
     # Get chain parameters
     @property
     def chain_params(self):
-        return self.get_network()
+        if self._network is None:
+            self._network = self.get_network()
+        return self._network
 
     def get_network(self):
         return self.get_chain_properties()
@@ -162,9 +166,15 @@ class Api:
         pass
 
     def __getattr__(self, name):
+        """ Proxies RPC calls to actual Websocket or Http instance.
+
+            Connection-related errors catched here and handled.
+        """
+
         def func(*args, **kwargs):
             while True:
                 try:
+                    # RPC method called on actual Websocket or Http class
                     func = self.connection.__getattr__(name)
                     r = func(*args, **kwargs)
                     self.reset_counter()

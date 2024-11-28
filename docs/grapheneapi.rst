@@ -1,10 +1,19 @@
 grapheneapi package
 ===================
 
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 6
+
+   grapheneapi.aio
+
 Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 6
 
    grapheneapi.api
    grapheneapi.exceptions
@@ -17,6 +26,6 @@ Module contents
 ---------------
 
 .. automodule:: grapheneapi
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

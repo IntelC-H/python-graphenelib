@@ -5,6 +5,7 @@ Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 6
 
    graphenestorage.base
    graphenestorage.exceptions
@@ -17,6 +18,6 @@ Module contents
 ---------------
 
 .. automodule:: graphenestorage
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
