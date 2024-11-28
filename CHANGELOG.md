@@ -1,6 +1,14 @@
 # Changelog
 Note: version releases in the 0.x.y range may introduce breaking changes.
 
+## 1.3.1
+
+- patch: Add aio packages to setup.py
+
+## 1.3.0
+
+- minor: Release asyncio support
+
 ## 1.2.0
 
 - minor: Use the last irreversible block for tapos ref params
