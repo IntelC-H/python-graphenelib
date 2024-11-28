@@ -1,10 +1,19 @@
 graphenecommon package
 ======================
 
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 6
+
+   graphenecommon.aio
+
 Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 6
 
    graphenecommon.account
    graphenecommon.amount
@@ -19,6 +28,7 @@ Submodules
    graphenecommon.instance
    graphenecommon.memo
    graphenecommon.message
+   graphenecommon.objectcache
    graphenecommon.price
    graphenecommon.proposal
    graphenecommon.transactionbuilder
@@ -32,6 +42,6 @@ Module contents
 ---------------
 
 .. automodule:: graphenecommon
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

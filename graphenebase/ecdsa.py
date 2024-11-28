@@ -78,8 +78,7 @@ def compressedPubkey(pk):
 
 
 def recover_public_key(digest, signature, i, message=None):
-    """ Recover the public key from the the signature
-    """
+    """Recover the public key from the the signature"""
 
     # See http: //www.secg.org/download/aid-780/sec1-v2.pdf section 4.1.6 primarily
     curve = ecdsa.SECP256k1.curve
@@ -124,8 +123,8 @@ def recover_public_key(digest, signature, i, message=None):
 
 
 def recoverPubkeyParameter(message, digest, signature, pubkey):
-    """ Use to derive a number that allows to easily recover the
-        public key from the signature
+    """Use to derive a number that allows to easily recover the
+    public key from the signature
     """
     if not isinstance(message, bytes):
         message = bytes(message, "utf-8")  # pragma: no cover
@@ -154,9 +153,9 @@ def recoverPubkeyParameter(message, digest, signature, pubkey):
 
 
 def sign_message(message, wif, hashfn=hashlib.sha256):
-    """ Sign a digest with a wif key
+    """Sign a digest with a wif key
 
-        :param str wif: Private key in
+    :param str wif: Private key in
     """
 
     if not isinstance(message, bytes):
@@ -174,7 +173,12 @@ def sign_message(message, wif, hashfn=hashlib.sha256):
             privkey = secp256k1.PrivateKey(p, raw=True)
             sig = secp256k1.ffi.new("secp256k1_ecdsa_recoverable_signature *")
             signed = secp256k1.lib.secp256k1_ecdsa_sign_recoverable(
-                privkey.ctx, sig, digest, privkey.private_key, secp256k1.ffi.NULL, ndata
+                secp256k1.secp256k1_ctx,
+                sig,
+                digest,
+                privkey.private_key,
+                secp256k1.ffi.NULL,
+                ndata,
             )
             if not signed == 1:  # pragma: no cover
                 raise AssertionError()
@@ -208,7 +212,7 @@ def sign_message(message, wif, hashfn=hashlib.sha256):
             sigder = bytearray(sigder)
             lenR = sigder[3]
             lenS = sigder[5 + lenR]
-            if lenR is 32 and lenS is 32:
+            if lenR == 32 and lenS == 32:
                 # Derive the recovery parameter
                 #
                 i = recoverPubkeyParameter(message, digest, signature, public_key)
@@ -254,7 +258,7 @@ def sign_message(message, wif, hashfn=hashlib.sha256):
             sigder = bytearray(sigder)
             lenR = sigder[3]
             lenS = sigder[5 + lenR]
-            if lenR is 32 and lenS is 32:
+            if lenR == 32 and lenS == 32:
                 # Derive the recovery parameter
                 #
                 i = recoverPubkeyParameter(
@@ -290,12 +294,8 @@ def verify_message(message, signature, hashfn=hashlib.sha256):
     recoverParameter = bytearray(signature)[0] - 4 - 27  # recover parameter only
 
     if SECP256K1_MODULE == "secp256k1":
-        ALL_FLAGS = (
-            secp256k1.lib.SECP256K1_CONTEXT_VERIFY
-            | secp256k1.lib.SECP256K1_CONTEXT_SIGN
-        )
         # Placeholder
-        pub = secp256k1.PublicKey(flags=ALL_FLAGS)
+        pub = secp256k1.PublicKey()
         # Recover raw signature
         sig = pub.ecdsa_recoverable_deserialize(sig, recoverParameter)
         # Recover PublicKey

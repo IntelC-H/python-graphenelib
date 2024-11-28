@@ -11,8 +11,7 @@ timeformat = "%Y-%m-%dT%H:%M:%S%Z"
 
 
 def varint(n):
-    """ Varint encoding
-    """
+    """Varint encoding"""
     data = b""
     while n >= 0x80:
         data += bytes([(n & 0x7F) | 0x80])
@@ -22,8 +21,7 @@ def varint(n):
 
 
 def varintdecode(data):  # pragma: no cover
-    """ Varint decoding
-    """
+    """Varint decoding"""
     shift = 0
     result = 0
     for b in bytes(data):
@@ -35,15 +33,24 @@ def varintdecode(data):  # pragma: no cover
 
 
 def variable_buffer(s):
-    """ Encode variable length buffer
-    """
+    """Encode variable length buffer"""
     return varint(len(s)) + s
 
 
 def JsonObj(data):
-    """ Returns json object from data
+    """Return json object from data
+
+    If data has a __json__() method, use that, else assume it follows the
+    convention that its string representation is interprettable as valid json.
+    (The latter can be problematic if str(data) returns, e.g., "1234". Was
+    this supposed to be the string "1234" or the number 1234? If this
+    ambiguity exists, the data type must implement __json__().)
+
     """
-    return json.loads(str(data))
+    try:
+        return data.__json__()
+    except Exception:
+        return json.loads(str(data))
 
 
 class Uint8:
@@ -139,12 +146,29 @@ class String:
 
 
 class Bytes:
+    """Bytes
+
+    Initializes from and stores internally as a string of hex digits.
+    Byte-serializes as a length-prefixed series of bytes represented
+    by those hex digits.
+
+    Ex: len(str(Bytes("deadbeef")) == 8   # Eight hex chars
+        len(bytes(Bytes("deadbeef")) == 5 # Four data bytes plus varint length
+
+    Implements __json__() method to disambiguate between string and numeric in
+    event where hex digits include only numeric digits and no alpha digits.
+
+    """
+
     def __init__(self, d):
         self.data = d
 
     def __bytes__(self):
         d = unhexlify(bytes(self.data, "utf-8"))
         return varint(len(d)) + d
+
+    def __json__(self):
+        return str(self.data)
 
     def __str__(self):
         return str(self.data)
@@ -173,6 +197,12 @@ class Sha1(Hash):
 class Sha256(Hash):
     def __init__(self, a):
         assert len(a) == 64, "Require 64 char long hex"
+        super().__init__(a)
+
+
+class Hash160(Hash):
+    def __init__(self, a):
+        assert len(a) == 40, "Require 40 char long hex"
         super().__init__(a)
 
 
@@ -295,7 +325,7 @@ class Map:
     def __str__(self):
         r = []
         for e in self.data:
-            r.append([str(e[0]), str(e[1])])
+            r.append([str(e[0]), JsonObj(str(e[1]))])
         return json.dumps(r)
 
 
@@ -326,8 +356,7 @@ class VoteId:
 
 
 class ObjectId:
-    """ Encodes protocol ids - serializes to the *instance* only!
-    """
+    """Encodes protocol ids - serializes to the *instance* only!"""
 
     object_types = object_type
 
@@ -358,8 +387,7 @@ class ObjectId:
 
 
 class FullObjectId:
-    """ Encodes object ids - serializes to a full object id
-    """
+    """Encodes object ids - serializes to a full object id"""
 
     def __init__(self, object_str):
         if len(object_str.split(".")) == 3:

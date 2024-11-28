@@ -19,27 +19,27 @@ log = logging.getLogger(__name__)
 
 
 class ProposalBuilder(SyncProposalBuilder):
-    """ Proposal Builder allows us to construct an independent Proposal
-        that may later be added to an instance ot TransactionBuilder
+    """Proposal Builder allows us to construct an independent Proposal
+    that may later be added to an instance ot TransactionBuilder
 
-        :param str proposer: Account name of the proposing user
-        :param int proposal_expiration: Number seconds until the proposal is
-            supposed to expire
-        :param int proposal_review: Number of seconds for review of the
-            proposal
-        :param .transactionbuilder.TransactionBuilder: Specify
-            your own instance of transaction builder (optional)
-        :param instance blockchain_instance: Blockchain instance
+    :param str proposer: Account name of the proposing user
+    :param int proposal_expiration: Number seconds until the proposal is
+        supposed to expire
+    :param int proposal_review: Number of seconds for review of the
+        proposal
+    :param .transactionbuilder.TransactionBuilder: Specify
+        your own instance of transaction builder (optional)
+    :param instance blockchain_instance: Blockchain instance
     """
 
     async def broadcast(self):
         assert self.parent, "No parent transaction provided!"
         self.parent._set_require_reconstruction()
+        await self.parent.sign()
         return await self.parent.broadcast()
 
     async def json(self):
-        """ Return the json formated version of this proposal
-        """
+        """Return the json formated version of this proposal"""
         raw = await self.get_raw()
         if not raw:
             return dict()
@@ -49,8 +49,7 @@ class ProposalBuilder(SyncProposalBuilder):
         raise NotImplementedError("Use .json() instead")
 
     async def get_raw(self):
-        """ Returns an instance of base "Operations" for further processing
-        """
+        """Returns an instance of base "Operations" for further processing"""
         if not self.ops:
             return
         ops = [self.operations.Op_wrapper(op=o) for o in list(self.ops)]
@@ -71,8 +70,8 @@ class ProposalBuilder(SyncProposalBuilder):
 
 
 class TransactionBuilder(SyncTransactionBuilder):
-    """ This class simplifies the creation of transactions by adding
-        operations and signers.
+    """This class simplifies the creation of transactions by adding
+    operations and signers.
     """
 
     async def list_operations(self):
@@ -90,8 +89,7 @@ class TransactionBuilder(SyncTransactionBuilder):
         raise NotImplementedError("Use .json() instead")
 
     async def json(self):
-        """ Show the transaction as plain json
-        """
+        """Show the transaction as plain json"""
         if not self._is_constructed() or self._is_require_reconstruction():
             await self.constructTx()
         return dict(self)
@@ -148,8 +146,8 @@ class TransactionBuilder(SyncTransactionBuilder):
         return r
 
     async def appendSigner(self, accounts, permission):
-        """ Try to obtain the wif key from the wallet by telling which account
-            and permission is supposed to sign the transaction
+        """Try to obtain the wif key from the wallet by telling which account
+        and permission is supposed to sign the transaction
         """
         assert permission in self.permission_types, "Invalid permission"
 
@@ -189,8 +187,8 @@ class TransactionBuilder(SyncTransactionBuilder):
                 self.signing_accounts.append(account)
 
     async def add_required_fees(self, ops, asset_id="1.3.0"):
-        """ Auxiliary method to obtain the required fees for a set of
-            operations. Requires a websocket connection to a witness node!
+        """Auxiliary method to obtain the required fees for a set of
+        operations. Requires a websocket connection to a witness node!
         """
         ws = self.blockchain.rpc
         fees = await ws.get_required_fees([i.json() for i in ops], asset_id)
@@ -215,8 +213,8 @@ class TransactionBuilder(SyncTransactionBuilder):
         return ops
 
     async def constructTx(self):
-        """ Construct the actual transaction and store it in the class's dict
-            store
+        """Construct the actual transaction and store it in the class's dict
+        store
         """
         ops = list()
         for op in self.ops:
@@ -254,9 +252,9 @@ class TransactionBuilder(SyncTransactionBuilder):
         self._unset_require_reconstruction()
 
     async def get_block_params(self, use_head_block=False):
-        """ Auxiliary method to obtain ``ref_block_num`` and
-            ``ref_block_prefix``. Requires a websocket connection to a
-            witness node!
+        """Auxiliary method to obtain ``ref_block_num`` and
+        ``ref_block_prefix``. Requires a websocket connection to a
+        witness node!
         """
         ws = self.blockchain.rpc
         dynBCParams = await ws.get_dynamic_global_properties()
@@ -277,13 +275,13 @@ class TransactionBuilder(SyncTransactionBuilder):
         return ref_block_num, ref_block_prefix
 
     async def sign(self):
-        """ Sign a provided transaction with the provided key(s)
+        """Sign a provided transaction with the provided key(s)
 
-            :param dict tx: The transaction to be signed and returned
-            :param string wifs: One or many wif keys to use for signing
-                a transaction. If not present, the keys will be loaded
-                from the wallet as defined in "missing_signatures" key
-                of the transactions.
+        :param dict tx: The transaction to be signed and returned
+        :param string wifs: One or many wif keys to use for signing
+            a transaction. If not present, the keys will be loaded
+            from the wallet as defined in "missing_signatures" key
+            of the transactions.
         """
         await self.constructTx()
 
@@ -307,21 +305,15 @@ class TransactionBuilder(SyncTransactionBuilder):
         elif "blockchain" in self:
             self.operations.default_prefix = self["blockchain"]["prefix"]
 
-        try:
-            signedtx = self.signed_transaction_class(**await self.json())
-        except Exception:
-            raise ValueError("Invalid TransactionBuilder Format")
-
         if not any(self.wifs):
             raise MissingKeyError
 
-        signedtx.sign(self.wifs, chain=self.blockchain.rpc.chain_params)
-        self["signatures"].extend(signedtx.json().get("signatures"))
-        return signedtx
+        self.tx.sign(self.wifs, chain=self.blockchain.rpc.chain_params)
+        self["signatures"].extend(self.tx.json().get("signatures"))
+        return self.tx
 
     async def verify_authority(self):
-        """ Verify the authority of the signed transaction
-        """
+        """Verify the authority of the signed transaction"""
         try:
             if not await self.blockchain.rpc.verify_authority(await self.json()):
                 raise InsufficientAuthorityError
@@ -329,9 +321,9 @@ class TransactionBuilder(SyncTransactionBuilder):
             raise e
 
     async def broadcast(self):
-        """ Broadcast a transaction to the blockchain network
+        """Broadcast a transaction to the blockchain network
 
-            :param tx tx: Signed transaction to broadcast
+        :param tx tx: Signed transaction to broadcast
         """
         # Sign if not signed
         if not self._is_signed():
@@ -339,7 +331,7 @@ class TransactionBuilder(SyncTransactionBuilder):
 
         # Cannot broadcast an empty transaction
         if "operations" not in self or not self["operations"]:
-            log.warning("No operations in transaction! Returning")
+            log.debug("No operations in transaction! Returning")
             return
 
         # Obtain JS
@@ -370,11 +362,11 @@ class TransactionBuilder(SyncTransactionBuilder):
         return ret
 
     async def addSigningInformation(self, account, permission):
-        """ This is a private method that adds side information to a
-            unsigned/partial transaction in order to simplify later
-            signing (e.g. for multisig or coldstorage)
+        """This is a private method that adds side information to a
+        unsigned/partial transaction in order to simplify later
+        signing (e.g. for multisig or coldstorage)
 
-            FIXME: Does not work with owner keys!
+        FIXME: Does not work with owner keys!
         """
         self.constructTx()
         self["blockchain"] = self.blockchain.rpc.chain_params
